@@ -1,11 +1,38 @@
 import React from 'react'
 import {Link} from 'react-router-dom'
 import * as THREE from 'three'
-import { EffectComposer, RenderPass } from 'postprocessing'
-import { WaterEffect } from '../Helpers/WaterEffect'
+import { EffectComposer, RenderPass ,Effect} from 'postprocessing'
+
+//import { WaterEffect } from '../Helpers/WaterEffect'
 import { EffectPass } from 'postprocessing'
 
+class WaterEffect extends Effect {
+  constructor(options = {}) {
+    super("WaterEffect", fragment, {
+      uniforms: new Map([["uTexture", new THREE.Uniform(options.texture)]])
+    });
+  }
+}
+const fragment = `
 
+uniform sampler2D uTexture;
+#define PI 3.14159265359
+
+void mainUv(inout vec2 uv) {
+        vec4 tex = texture2D(uTexture, uv);
+        float angle = -((tex.r) * (PI * 2.) - PI) ;
+        float vx = -(tex.r *2. - 1.);
+        float vy = -(tex.g *2. - 1.);
+        float intensity = tex.b;
+        uv.x += vx * 0.2 * intensity ;
+        uv.y += vy * 0.2  *intensity;
+        // uv.xy *= 1. - 0.5 * smoothstep( 0., 1., intensity) ;
+        // uv.x +=  0.2 * intensity;
+        // uv.y +=  0.2  *intensity;
+    }
+
+
+`;
 const easeOutSine = (t, b, c, d) => {
   return c * Math.sin((t / d) * (Math.PI / 2)) + b;
 };
@@ -163,9 +190,23 @@ let renderer = new THREE.WebGLRenderer({
            addPlane()
 
           const renderPass = new RenderPass(scene, camera);
+          renderPass.renderToScreen = true;
+
+
+
+      let waterEffect = new Effect("WaterEffect", fragment, {
+        uniforms: new Map([["uTexture", new THREE.Uniform(waterTexture.texture)]])
+      }  );
+    const waterPass = new EffectPass(camera, waterEffect);
+    console.log(waterEffect)
+
+    renderPass.renderToScreen = false;
+    waterPass.renderToScreen = true;
+  composer.addPass(renderPass);
+  composer.addPass(waterPass);
 
         composer.addPass(renderPass)
-
+        console.log(composer)
 function render(){
 
       composer.render(clock.getDelta())
@@ -216,17 +257,7 @@ class Main extends React.Component{
               }
               waterTexture.addPoint(point);
       	}
-        initComposer(){
-          const renderPass = new RenderPass(this.scene, this.camera);
-  this.waterEffect = new WaterEffect(  this.touchTexture.texture);
 
-  const waterPass = new EffectPass(this.camera, this.waterEffect);
-
-  renderPass.renderToScreen = false;
-  waterPass.renderToScreen = true;
-  this.composer.addPass(renderPass);
-  this.composer.addPass(waterPass);
-            }
 
 
   render() {
